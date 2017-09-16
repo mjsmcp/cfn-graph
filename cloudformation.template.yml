@@ -1,0 +1,87 @@
+{
+	"Parameters": {
+		"BuildId": {
+			"Type": "String"
+		},
+		"TargetBucket": {
+			"Type": "String"
+		}
+	},
+	"Resources": {
+		"CfnGraphCloudFront": {
+			"Type": "AWS::CloudFront::Distribution",
+			"Properties": {
+				"DistributionConfig": {
+					"Aliases": [
+						"cfn-build.mjsmcp.com"
+					],
+					"DefaultCacheBehavior": {
+						"AllowedMethods": [
+							"GET",
+							"HEAD"
+						],
+						"Compress": true,
+						"DefaultTTL": 1800,
+						"MinTTL": 1800,
+						"TargetOriginId": "s3_path_current",
+						"ViewerProtocolPolicy": "redirect-to-https",
+						"ForwardedValues": {
+						  "QueryString": false
+						}
+					},
+					"Enabled": true,
+					"HttpVersion": "http2",
+					"Origins": [
+						{
+						    "CustomOriginConfig": {
+						      "OriginProtocolPolicy": "http-only"
+						    },
+							"OriginPath": {
+								"Fn::Join": [
+									"",
+									[
+										"/",
+										{
+											"Ref": "BuildId"
+										}
+									]
+								]
+							},
+							"DomainName": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        {
+                                            "Ref": "TargetBucket"
+                                        },
+                                        ".s3-website-us-west-2.amazonaws.com"
+                                    ]
+                                ]
+                            },
+							"Id": "s3_path_current"
+						}
+					],
+					"PriceClass": "PriceClass_100",
+					"ViewerCertificate": {
+						"AcmCertificateArn": {
+							"Ref": "CfnGraphCertificate"
+						},
+						"SslSupportMethod": "sni-only"
+					}
+				}
+			}
+		},
+		"CfnGraphCertificate": {
+			"Type": "AWS::CertificateManager::Certificate",
+			"Properties": {
+				"DomainName": "cfn-build.mjsmcp.com",
+				"DomainValidationOptions": [
+                    {
+                        "DomainName": "cfn-build.mjsmcp.com",
+                        "ValidationDomain": "mjsmcp.com"
+                    }
+				]
+			}
+		}
+	}
+}

@@ -7,7 +7,13 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
         <script src="https://cdn.rawgit.com/cytoscape/cytoscape.js-cose-bilkent/1.6.5/cytoscape-cose-bilkent.js"></script>
         <script src="https://cdn.rawgit.com/dhotson/springy/2.7.1/springy.js"></script>
+        <!--<script src="js/graph.min.js"></script>-->
         <script src="js/cytoscape-springy.js"></script>
+
+        <script src="js/unique1.js"></script>
+        <script src="js/set_cytoscape.js"></script>
+        <script src="js/cfn-parser.js"></script>
+        <script src="js/set_analysis.js"></script>
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
 <style>
     #cy {
@@ -16,7 +22,7 @@
         display: block;
     }
     #input_cfn {
-        height:90%;
+        height:50%;
         width:100%;
     }
 
@@ -45,284 +51,29 @@
     }
 </style>
         <script>
-
-            Array.prototype.unique1 = function()
-            {
-                var n = [];
-                for(var i = 0; i < this.length; i++)
-                {
-                    if (n.indexOf(this[i]) === -1) n.push(this[i]);
-                }
-                return n;
-            };
-
             window.onload=function() {
               handle_json_change();
             };
 
-            function set_cytoscape(nodes, edges) {
-                console.log("Nodes:");
-                console.log(nodes);
+            function node_click(evt) {
+                console.log(evt.target.data());
+                var type = evt.target.data().type;
+                if(type === "resource") {
+                    $("#nodeTitle").html(evt.target.data().id + " (Resource)");
+                    $("#nodeJson").html(prettyPrintJson(evt.target.data().json));
 
-                console.log("Edges:");
-                console.log(edges);
-
-
-                var cy = cytoscape({
-
-                    container: document.getElementById('cy'), // container to render in
-
-                    elements: nodes.concat(edges),
-
-                    style:  cytoscape.stylesheet()
-                        .selector('node')
-                        .css({
-                            'label': 'data(id)',
-                            'background-fit': 'cover',
-                            'background-color': '#666',
-                            'border-width': 0
-
-                        })
-                        .selector("[type = 'pseudo']")
-                        .css({
-                            'label': 'data(id)',
-                            'background-fit': 'cover',
-                            'background-color': '#66f',
-                            'border-width': 0
-
-                        })
-                        .selector("[type = 'parameter']")
-                        .css({
-                            'label': 'data(id)',
-                            'background-fit': 'cover',
-                            'background-color': '#6f6',
-                            'border-width': 0
-
-                        })
-                        .selector("[type = 'resource']")
-                        .css({
-                            'label': 'data(id)',
-                            'background-fit': 'cover',
-                            'background-color': '#f66',
-                            'border-width': 0
-
-                        })
-                        .selector('edge')
-                        .css({
-                            'curve-style': 'bezier',
-                            'width': 3,
-                            'target-arrow-shape': 'triangle',
-                            'line-color': '#ffaaaa',
-                            'target-arrow-color': '#ffaaaa'
-                        })
-                        .selector("[ type = 'fnsub' ]")
-                        .css({
-                            'curve-style': 'bezier',
-                            'width': 3,
-                            'target-arrow-shape': 'triangle',
-                            'line-color': '#aaffaa',
-                            'target-arrow-color': '#aaffaa'
-                        })
-                        .selector("[ type = 'fngetatt' ]")
-                        .css({
-                            'curve-style': 'bezier',
-                            'width': 3,
-                            'target-arrow-shape': 'triangle',
-                            'line-color': '#aaaaff',
-                            'target-arrow-color': '#aaaaff'
-                        }),
-
-                    layout: {
-                        name: 'springy',
-                        avoidOverlap: true,
-                        nodeDimensionsIncludeLabels: true,
-
-                        animate: true, // whether to show the layout as it's running
-                        maxSimulationTime: 40000, // max length in ms to run the layout
-                        ungrabifyWhileSimulating: false, // so you can't drag nodes during layout
-                        fit: false, // whether to fit the viewport to the graph
-                        padding: 20, // padding on fit
-                        boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
-                        randomize: false, // whether to use random initial positions
-                        infinite: false, // overrides all other options for a forces-all-the-time mode
-                        ready: undefined, // callback on layoutready
-                        stop: undefined, // callback on layoutstop
-
-                        // springy forces and config
-                        stiffness: 100,
-                        repulsion: 600,
-                        damping: 0.4,
-                        edgeLength: function( edge ){
-                            var length = edge.data('length');
-
-                            if( length !== undefined && !isNaN(length) ){
-                                return length;
-                            }
-                        }
-                    }
-
-                })
-                .on('click','node', function(evt) {
-                        console.log(evt.target.data());
-                        var type = evt.target.data().type;
-                        if(type === "resource") {
-                            $("#nodeTitle").html(evt.target.data().id + " (Resource)");
-                            $("#nodeJson").html(prettyPrintJson(evt.target.data().json));
-
-                        } else if (type === "parameter") {
-                            $("#nodeTitle").html(evt.target.data().id + " (Parameter)");
-                            $("#nodeJson").html(prettyPrintJson(evt.target.data().json));
-                            $("#nodeUpstream").html("N/A");
-                        }
-
-                        $("#nodeModal").modal("show");
-
-
-                });
-
-
-
-
+                } else if (type === "parameter") {
+                    $("#nodeTitle").html(evt.target.data().id + " (Parameter)");
+                    $("#nodeJson").html(prettyPrintJson(evt.target.data().json));
+                    $("#nodeUpstream").html("N/A");
+                }
+                $("#nodeModal").modal("show");
             }
+
 
             function prettyPrintJson(json) {
                 return JSON.stringify(JSON.parse(json), null, 2)
             }
-
-            //https://stackoverflow.com/questions/4810841/how-can-i-pretty-print-json-using-javascript
-            function syntaxHighlight(json) {
-                if (typeof json != 'string') {
-                    json = JSON.stringify(json, undefined, 2);
-                }
-                json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-                    var cls = 'number';
-                    if (/^"/.test(match)) {
-                        if (/:$/.test(match)) {
-                            cls = 'key';
-                        } else {
-                            cls = 'string';
-                        }
-                    } else if (/true|false/.test(match)) {
-                        cls = 'boolean';
-                    } else if (/null/.test(match)) {
-                        cls = 'null';
-                    }
-                    return '<span class="' + cls + '">' + match + '</span>';
-                });
-            }
-            // https://stackoverflow.com/questions/722668/traverse-all-the-nodes-of-a-json-object-tree-with-javascript
-            //called with every property and its value
-            function get_ref(key,value) {
-                var refs = [];
-                if(key === "Ref") {
-                    refs.push(value);
-                }
-                return refs;
-            }
-
-            // incomplete
-            function get_sub_formatted_keys(value) {
-                var keys = [];
-                var rx3 = /\${([^}]+)}/;
-                var matches = value.match(rx3);
-                if (!(matches === null)) {
-
-                    var validMatches = [];
-                    for (var i = 0; i < matches.length; i++) {
-                        if (!rx3.test(matches[i])) {
-                            validMatches.push(matches[i]);
-                        }
-                    }
-
-                    validMatches = validMatches.unique1();
-                    for (var k = 0; k < validMatches.length; k++) {
-                        keys.push(validMatches[k]);
-                    }
-                }
-
-                return keys;
-            }
-            function get_fnsub(key,value) {
-                var subs = [];
-                if(key === "Fn::Sub") {
-                    if(typeof(value) === "string") {
-                        subs = subs.concat(get_sub_formatted_keys(value));
-
-                    } else if(typeof(value) === "object") {
-                        var string = value[0];
-                        var obSubs = get_sub_formatted_keys(string);
-
-                        var objKeys = value[1];
-
-                        var objKeyNames = [];
-                        for(var objKey in objKeys) {
-                            objKeyNames.push(objKey);
-                        }
-
-                        obSubs = obSubs.filter(function(item) {
-                           return !objKeyNames.includes(item);
-                        });
-
-                        subs = subs.concat(obSubs);
-
-                    } else {
-                        console.log(typeof(value));
-                    }
-
-
-
-                }
-                return subs;
-            }
-
-            function get_fngetatt(key, value) {
-                var getatts = [];
-                if(key === "Fn::GetAtt") {
-                    if(typeof(value) === "string") {
-                        var first = value.split(".")[0];
-                        getatts.push(first);
-                    } else if(typeof(value) === "object") {
-                        var arrayFirst = value[0];
-                        getatts.push(arrayFirst);
-                    }
-                }
-                return getatts;
-            }
-
-            function print(key,value) {
-                console.log(key + " : " + value);
-            }
-
-            function get_pseudo_params() {
-                return [
-                    "AWS::AccountId",
-                    "AWS::NotificationARNs",
-                    "AWS::NoValue",
-                    "AWS::Region",
-                    "AWS::StackId",
-                    "AWS::StackName",
-                    "AWS::Partition",
-                    "AWS::Region",
-                    "AWS::StackId",
-                    "AWS::StackName",
-                    "AWS::URLSuffix"
-                ];
-            }
-
-            function traverse(o,func) {
-                var items = [];
-                for (var i in o) {
-                    items = items.concat(func.apply(this,[i,o[i]]));
-                    if (o[i] !== null && typeof(o[i])==="object") {
-                        //going one step down in the object tree!!
-                        items = items.concat(traverse(o[i],func));
-                    }
-                }
-
-                return items;
-            }
-
 
             function get_edges(source, targets, type) {
 
@@ -356,96 +107,14 @@
                 }
             }
 
-            function parse_cfn_json(json) {
-                try {
-                    var jsonObject = JSON.parse(json);
-                    // Get relevant top-level items
-                    var parameters = jsonObject.Parameters;
-                    var resources = jsonObject.Resources;
 
-                    // Set lists
-                    var nodes = [];
-                    var edges = [];
-
-                    var allTargets = [];
-
-
-
-                    // Process parameters
-                    console.log("Parameters: " + parameters.length);
-                    for(param in parameters) {
-                        allTargets.push(param);
-                        nodes.push({
-                            data: { id: param, type: 'parameter', json: JSON.stringify(parameters[param]) }
-                        });
-                    }
-
-
-                    // Process resources
-                    console.log("Resources: " + resources.length);
-                    for(var keyName in resources) {
-
-                        var res = resources[keyName];
-                        allTargets.push(res);
-
-
-                        // Get Refs
-                        var resRef = traverse(res, get_ref);
-                        var refEdges = get_edges(keyName, resRef, 'ref');
-                        edges = edges.concat(refEdges.edges);
-                        allTargets = allTargets.concat(refEdges.targets);
-
-                        // Get FnSubs
-                        var resFnSub = traverse(res, get_fnsub);
-                        var fnSubEdges = get_edges(keyName, resFnSub, 'fnsub');
-                        edges = edges.concat(fnSubEdges.edges);
-                        allTargets = allTargets.concat(fnSubEdges.targets);
-
-                        // Get GetAtts
-                        var resFnGetAtt = traverse(res, get_fngetatt);
-                        var fnGetAttEdges = get_edges(keyName, resFnGetAtt, 'fngetatt');
-                        edges = edges.concat(fnGetAttEdges.edges);
-                        allTargets = allTargets.concat(fnGetAttEdges.targets);
-
-
-
-                        nodes.push({
-                            data: {
-                                id: keyName,
-                                type: 'resource',
-                                json: JSON.stringify(res),
-                                refs: refEdges.targets.unique1(),
-                                fnsubs: fnSubEdges.targets.unique1()
-                            }
-                        });
-                    }
-
-                    var pseudo_params = get_pseudo_params();
-                    for(j = 0; j < pseudo_params.length; j++ ) {
-                        if(allTargets.includes(pseudo_params[j])) {
-                            nodes.push({
-                                data: { id: pseudo_params[j], type: 'pseudo' }
-                            });
-                        }
-                    }
-
-
-
-
-                    nodes = nodes.filter(not_undefined);
-                    edges = edges.filter(not_undefined);
-
-                    return { nodes: nodes, edges: edges};
-                } catch(err) {
-                    console.error(err);
-                    return { nodes: undefined, edges: undefined};
-                }
-            }
 
             function handle_json_change(sender) {
                 var json = $("#input_cfn").val();
                 var graph_data = parse_cfn_json(json);
-                set_cytoscape(graph_data.nodes, graph_data.edges);
+                console.log(graph_data);
+                set_analysis(graph_data.graphjs);
+                set_cytoscape(graph_data.cytoscape.nodes, graph_data.cytoscape.edges, node_click);
                 return false;
             }
 
@@ -463,9 +132,10 @@
             </div>
             <div class="row">
                 <div class="col-md-4">
-                    <span class="col-header">Template (JSON)</span>
-
-<textarea id="input_cfn" class="form-control" oninput="handle_json_change();">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <span class="modal-header">Template (JSON)</span>
+                            <textarea id="input_cfn" class="form-control" oninput="handle_json_change();">
 {
   "AWSTemplateFormatVersion": "2010-09-09",
 
@@ -543,10 +213,38 @@
    }
 }
 </textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <span class="modal-header">Analysis</span>
+                                <div id="analysis">
+                                    <div class="container-fluid">
+                                        <div class="row">
+                                            <div class="col-md-2 bold">Nodes:</div>
+                                            <div class="col-md-10"><span id="graphNodeCount"></span></div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-2">Edges:</div>
+                                            <div class="col-md-10"><span id="graphEdgeCount"></span></div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-2">Cycles:</div>
+                                            <div class="col-md-10"><span id="graphCycles"></span></div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-2">Broken Edges:</div>
+                                            <div class="col-md-10"><span id="graphBrokenEdges"></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="col-md-8">
-                    <span class="col-header">Graph</span>
+                    <span class="modal-header">Graph</span>
                     <div id="cy"></div>
                 </div>
             </div>
@@ -574,6 +272,7 @@
                                 <div class="col-md-6">
                                     <span class="modal-header">Resource JSON</span>
                                     <pre id="nodeJson"></pre>
+
                                 </div>
                                 <div class="col-md-6">
                                     <span class="modal-header">Upstream Dependencies</span>

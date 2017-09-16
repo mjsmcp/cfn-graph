@@ -109,3 +109,6 @@ crashlytics-build.properties
 fabric.properties
 
 .idea/*
+
+aws_configure
+build/*
