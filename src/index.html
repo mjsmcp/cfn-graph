@@ -1,64 +1,202 @@
 <html>
     <head>
+        <title>Cfn Graph</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.2.3/cytoscape.min.js"></script>
         <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
+        <script src="https://cdn.rawgit.com/cytoscape/cytoscape.js-cose-bilkent/1.6.5/cytoscape-cose-bilkent.js"></script>
+        <script src="https://cdn.rawgit.com/dhotson/springy/2.7.1/springy.js"></script>
+        <script src="js/cytoscape-springy.js"></script>
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
 <style>
     #cy {
         width: 100%;
-        height: 100%;
+        height: 90% ;
         display: block;
     }
     #input_cfn {
-        height:100%;
+        height:90%;
         width:100%;
+    }
 
+    #header_row {
+        border-bottom:5px black solid;
+        padding:5px;
+        margin-bottom:20px;
+
+    }
+    #header_row #header_text {
+        font-size: 24pt;
+    }
+
+    @media (min-width: 992px) {
+        .modal-lg {
+            width: 900px;
+            height: 900px; /* control height here */
+        }
     }
 </style>
         <script>
+
+            Array.prototype.unique1 = function()
+            {
+                var n = [];
+                for(var i = 0; i < this.length; i++)
+                {
+                    if (n.indexOf(this[i]) === -1) n.push(this[i]);
+                }
+                return n;
+            };
+
+            window.onload=function() {
+              handle_json_change();
+            };
+
             function set_cytoscape(nodes, edges) {
+                console.log(nodes);
+                console.log(edges);
                 var cy = cytoscape({
 
                     container: document.getElementById('cy'), // container to render in
 
                     elements: nodes.concat(edges),
 
-                    style: [ // the stylesheet for the graph
-                        {
-                            selector: 'node',
-                            style: {
-                                'background-color': '#666',
-                                'label': 'data(id)'
-                            }
-                        },
+                    style:  cytoscape.stylesheet()
+                        .selector('node')
+                        .css({
+                            'label': 'data(id)',
+                            'background-fit': 'cover',
+                            'background-color': '#666',
+                            'border-width': 0
 
-                        {
-                            selector: 'edge',
-                            style: {
-                                'width': 3,
-                                'line-color': '#ccc',
-                                'target-arrow-color': '#ccc',
-                                'target-arrow-shape': 'triangle'
-                            }
-                        }
-                    ],
+                        })
+                        .selector("[type = 'pseudo']")
+                        .css({
+                            'label': 'data(id)',
+                            'background-fit': 'cover',
+                            'background-color': '#66f',
+                            'border-width': 0
+
+                        })
+                        .selector("[type = 'parameter']")
+                        .css({
+                            'label': 'data(id)',
+                            'background-fit': 'cover',
+                            'background-color': '#6f6',
+                            'border-width': 0
+
+                        })
+                        .selector("[type = 'resource']")
+                        .css({
+                            'label': 'data(id)',
+                            'background-fit': 'cover',
+                            'background-color': '#f66',
+                            'border-width': 0
+
+                        })
+                        .selector('edge')
+                        .css({
+                            'curve-style': 'bezier',
+                            'width': 3,
+                            'target-arrow-shape': 'triangle',
+                            'line-color': '#ffaaaa',
+                            'target-arrow-color': '#ffaaaa'
+                        }),
+
+//                        [ // the stylesheet for the graph
+//                        {
+//                            selector: 'node',
+//                            style: {
+//                                'background-color': '#666',
+//                                'label': 'data(id)'
+//                            }
+//                        },
+//
+//                        {
+//                            selector: 'edge',
+//                            style: {
+//                                'width': 10,
+//                                'line-color': '#ccc',
+//                                'target-arrow-color': '#f00',
+//                                'target-arrow-shape': 'triangle'
+//                            }
+//                        }
+//                    ],
 
                     layout: {
-                        name: 'cose',
+                        name: 'springy',
                         avoidOverlap: true,
-                        nodeDimensionsIncludeLabels: true
+                        nodeDimensionsIncludeLabels: true,
+
+                        animate: true, // whether to show the layout as it's running
+                        maxSimulationTime: 40000, // max length in ms to run the layout
+                        ungrabifyWhileSimulating: false, // so you can't drag nodes during layout
+                        fit: false, // whether to fit the viewport to the graph
+                        padding: 20, // padding on fit
+                        boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+                        randomize: false, // whether to use random initial positions
+                        infinite: false, // overrides all other options for a forces-all-the-time mode
+                        ready: undefined, // callback on layoutready
+                        stop: undefined, // callback on layoutstop
+
+                        // springy forces and config
+                        stiffness: 100,
+                        repulsion: 500,
+                        damping: 0.5,
+                        edgeLength: function( edge ){
+                            var length = edge.data('length');
+
+                            if( length !== undefined && !isNaN(length) ){
+                                return length;
+                            }
+                        }
                     }
+
+                }).on('click','node', function(evt) {
+                    console.log(evt.target.data());
+                    $("#nodeTitle").html(evt.target.data().id);
+                    $("#nodeJson").html(prettyPrintJson(evt.target.data().json));
+                    $("#nodeModal").modal("show");
+
                 });
+
+
+
             }
 
+            function prettyPrintJson(json) {
+                return JSON.stringify(JSON.parse(json), null, 2)
+            }
+
+            //https://stackoverflow.com/questions/4810841/how-can-i-pretty-print-json-using-javascript
+            function syntaxHighlight(json) {
+                if (typeof json != 'string') {
+                    json = JSON.stringify(json, undefined, 2);
+                }
+                json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                    var cls = 'number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'key';
+                        } else {
+                            cls = 'string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'null';
+                    }
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+            }
             // https://stackoverflow.com/questions/722668/traverse-all-the-nodes-of-a-json-object-tree-with-javascript
             //called with every property and its value
             function get_ref(key,value) {
                 var refs = [];
                 if(key === "Ref") {
-                    refs.push({k: key, v:value});
+                    refs.push(value);
                 }
                 return refs;
             }
@@ -67,7 +205,7 @@
             function get_fnsub(key,value) {
                 var subs = [];
                 if(key === "Fn::Sub") {
-                    var rx3 = /\${([^}]+)}/
+                    var rx3 = /\${([^}]+)}/;
                     var matches = value.match(rx3);
 
                     //selects the () group values
@@ -87,6 +225,23 @@
             function print(key,value) {
                 console.log(key + " : " + value);
             }
+
+            function get_pseudo_params() {
+                return [
+                    "AWS::AccountId",
+                    "AWS::NotificationARNs",
+                    "AWS::NoValue",
+                    "AWS::Region",
+                    "AWS::StackId",
+                    "AWS::StackName",
+                    "AWS::Partition",
+                    "AWS::Region",
+                    "AWS::StackId",
+                    "AWS::StackName",
+                    "AWS::URLSuffix"
+                ];
+            }
+
             function traverse(o,func) {
                 var items = [];
                 for (var i in o) {
@@ -100,10 +255,9 @@
                 return items;
             }
 
-
-            function handle_json_change(sender) {
+            function parse_cfn_json(json) {
                 try {
-                    var jsonObject = JSON.parse($("#input_cfn").val());
+                    var jsonObject = JSON.parse(json);
                     // Get relevant top-level items
                     var parameters = jsonObject.Parameters;
                     var resources = jsonObject.Resources;
@@ -112,11 +266,14 @@
                     var nodes = [];
                     var edges = [];
 
+                    var allTargets = []
+
 
 
                     // Process parameters
                     console.log("Parameters: " + parameters.length);
                     for(param in parameters) {
+                        allTargets.push(param);
                         nodes.push({
                             data: { id: param, type: 'parameter' }
                         });
@@ -126,53 +283,210 @@
                     // Process resources
                     console.log("Resources: " + resources.length);
                     for(var keyName in resources) {
-                        var edges = [];
+
                         var res = resources[keyName];
-                        nodes.push({
-                            data: { id: keyName, type: 'resource' }
-                        });
+                        allTargets.push(res);
+
 
                         // Get Refs
                         var resRef = traverse(res, get_ref);
-                        for(var ref in resRef) {
-                            var refTarget = resRef[ref].v;
-
+                        var myRefs = [];
+                        for(var i = 0; i < resRef.length; i++) {
+                            var refTarget = resRef[i];
+                            allTargets.push(refTarget);
+                            myRefs.push(refTarget);
                             var edge = { // edge ab
                                 data: { id: keyName + ">" + refTarget, source: keyName, target: refTarget, type: 'ref' }
                             };
+
                             edges.push(edge);
                         }
+//                        for(var ref in resRef) {
+//                            var refTarget = resRef[ref];
+//
+//                        }
 
                         // Get FnSubs
+
+                        // Get GetAtts
+
+
+                        nodes.push({
+                            data: {
+                                id: keyName,
+                                type: 'resource',
+                                json: JSON.stringify(res),
+                                refs: myRefs.unique1(),
+
+                            }
+                        });
                     }
 
+                    var pseudo_params = get_pseudo_params();
+                    for(j = 0; j < pseudo_params.length; j++ ) {
+                        if(allTargets.includes(pseudo_params[j])) {
+                            console.log(pseudo_params[j]);
+                            nodes.push({
+                                data: { id: pseudo_params[j], type: 'pseudo' }
+                            });
+                        }
+                    }
+                    console.log(allTargets);
+//                    console.log(nodes);
+//                    console.log(edges);
 
-                    console.log(nodes);
-                    console.log(edges);
+                    nodes = nodes.filter(not_undefined);
+                    edges = edges.filter(not_undefined);
 
-                    set_cytoscape(nodes, edges);
+                    return { nodes: nodes, edges: edges};
                 } catch(err) {
                     console.error(err);
-                    return false;
+                    return { nodes: undefined, edges: undefined};
                 }
+            }
+
+            function handle_json_change(sender) {
+                var json = $("#input_cfn").val();
+                var graph_data = parse_cfn_json(json);
+                set_cytoscape(graph_data.nodes, graph_data.edges);
+                return false;
+            }
+
+            function not_undefined(i) {
+                return !(i===undefined);
             }
         </script>
     </head>
     <body>
         <div class="container-fluid">
             <div class="row">
-                <div class="col-md-12"><h2>CfnGraph</h2></div>
+                <div class="col-md-12" id="header_row">
+                    <span id="header_text">Cfn Graph</span>
+                </div>
             </div>
             <div class="row">
                 <div class="col-md-4">
                     <span class="col-header">Template (JSON)</span>
-                    <textarea id="input_cfn" class="form-control" oninput="handle_json_change();"></textarea>
+
+<textarea id="input_cfn" class="form-control" oninput="handle_json_change();">
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "AWS CloudFormation Sample Template DynamoDB_Secondary_Indexes: Create a DynamoDB table with local and global secondary indexes. **WARNING** This template creates an Amazon DynamoDB table. You will be billed for the AWS resources used if you create a stack from this template.",
+
+  "Parameters": {
+    "ReadCapacityUnits": {
+      "Description": "Provisioned read throughput",
+      "Type": "Number",
+      "Default": "5",
+      "MinValue": "5",
+      "MaxValue": "10000",
+      "ConstraintDescription": "must be between 5 and 10000"
+    },
+
+    "WriteCapacityUnits": {
+      "Description": "Provisioned write throughput",
+      "Type": "Number",
+      "Default": "10",
+      "MinValue": "5",
+      "MaxValue": "10000",
+      "ConstraintDescription": "must be between 5 and 10000"
+    }
+  },
+
+  "Resources": {
+    "TableOfBooks": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "AttributeDefinitions": [
+          { "AttributeName": "Title", "AttributeType": "S" },
+          { "AttributeName": "Category", "AttributeType": "S" },
+          { "AttributeName": "Language", "AttributeType": "S" }
+        ],
+        "KeySchema": [
+          { "AttributeName": "Category", "KeyType": "HASH" },
+          { "AttributeName": "Title", "KeyType": "RANGE" }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": { "Ref": "ReadCapacityUnits" },
+          "WriteCapacityUnits": { "Ref": "WriteCapacityUnits" }
+        },
+        "LocalSecondaryIndexes": [ {
+          "IndexName": "LanguageIndex",
+          "KeySchema": [
+            { "AttributeName": "Category", "KeyType": "HASH" },
+            { "AttributeName": "Language", "KeyType": "RANGE" }
+          ],
+          "Projection": {
+            "ProjectionType": "KEYS_ONLY"
+          }
+        } ],
+        "GlobalSecondaryIndexes": [ {
+          "IndexName": "TitleIndex",
+          "KeySchema": [
+            { "AttributeName": "Title", "KeyType": "HASH" }
+          ],
+          "Projection": {
+            "ProjectionType": "KEYS_ONLY"
+          },
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": { "Ref": "ReadCapacityUnits" },
+            "WriteCapacityUnits": { "Ref": "WriteCapacityUnits" }
+          }
+        } ]
+      }
+    }
+  },
+
+   "Outputs" : {
+     "TableName" : {
+       "Value" : {"Ref" : "TableOfBooks"},
+       "Description" : "Name of the newly created DynamoDB table"
+     }
+   }
+}
+</textarea>
                 </div>
 
                 <div class="col-md-8">
                     <span class="col-header">Graph</span>
                     <div id="cy"></div>
                 </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                   Samples:
+                    <a href="https://raw.githubusercontent.com/tableau/server-install-script-samples/master/CloudFormation/public-sample-ssl-cluster.cfn" target="_blank">Tableau Cluster</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="nodeModal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-lg">
+
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 id="nodeTitle" class="modal-title">Modal Header</h4>
+                    </div>
+                    <div id="nodeBody" class="modal-body">
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <pre id="nodeJson"></pre>
+                                </div>
+                                <div class="col-md-6">
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </body>
