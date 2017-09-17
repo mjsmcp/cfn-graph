@@ -119,12 +119,50 @@ function get_pseudo_params() {
 }
 
 
-function parse_cfn_json(json) {
+function get_edges(source, targets, type) {
+
+    // List Targets
+    var targetStrings = [];
+    for(var i = 0; i < targets.length; i++) {
+        targetStrings.push(targets[i]);
+    }
+
+
+    // Dedup Targets
+    targetStrings = targetStrings.unique1();
+
+    // Create edges
+    var edges = [];
+    for(var k = 0; k < targetStrings.length; k++) {
+        var edge = { // edge ab
+            data: {
+                id: source + ">" + targetStrings[k],
+                source: source,
+                target: targetStrings[k],
+                type: type
+            }
+        };
+        edges.push(edge);
+    }
+
+    return {
+        edges: edges,
+        targets: targetStrings
+    };
+}
+
+
+function parse_cfn_json(json, filter_options) {
     try {
         var jsonObject = JSON.parse(json);
         // Get relevant top-level items
         var parameters = jsonObject.Parameters;
         var resources = jsonObject.Resources;
+
+        // make GraphJs
+        var graphjs = new Graph();
+        var gjsVertices = [];
+        var gjsEdges = [];
 
         // Set lists
         var nodes = [];
@@ -132,88 +170,228 @@ function parse_cfn_json(json) {
         var allRefs = [];
         var allFnSubs = [];
         var allTargets = [];
+        var allFnGetAtts = [];
 
         // Process parameters
         for(param in parameters) {
-            allTargets.push(param);
+            gjsVertices.push({
+                data: {
+                    id: param,
+                    type: 'parameter',
+                    json: JSON.stringify(parameters[param])
+                }
 
-            nodes.push({
-                data: { id: param, type: 'parameter', json: JSON.stringify(parameters[param]) }
             });
-
         }
 
         // Process resources
         for(var keyName in resources) {
-
             var res = resources[keyName];
-            allTargets.push(res);
-
 
             // Get Refs
             var resRef = traverse(res, get_ref);
             var refEdges = get_edges(keyName, resRef, 'ref');
-            edges = edges.concat(refEdges.edges);
-            allTargets = allTargets.concat(refEdges.targets);
+            for(var i = 0; i < refEdges.edges.length; i++) {
+                var edge = refEdges.edges[i];
+                gjsEdges.push(edge);
+            }
             allRefs = allRefs.concat(refEdges.targets);
 
             // Get FnSubs
             var resFnSub = traverse(res, get_fnsub);
             var fnSubEdges = get_edges(keyName, resFnSub, 'fnsub');
-            edges = edges.concat(fnSubEdges.edges);
-            allTargets = allTargets.concat(fnSubEdges.targets);
+            for(var i = 0; i < fnSubEdges.edges.length; i++) {
+                var edge = fnSubEdges.edges[i];
+                gjsEdges.push(edge);
+            }
             allFnSubs = allFnSubs.concat(fnSubEdges.targets);
 
             // Get GetAtts
             var resFnGetAtt = traverse(res, get_fngetatt);
             var fnGetAttEdges = get_edges(keyName, resFnGetAtt, 'fngetatt');
-            edges = edges.concat(fnGetAttEdges.edges);
-            allTargets = allTargets.concat(fnGetAttEdges.targets);
+            for(var i = 0; i < fnGetAttEdges.edges.length; i++) {
+                var edge = fnGetAttEdges.edges[i];
+                gjsEdges.push(edge);
+            }
+            allFnGetAtts = allFnGetAtts.concat(fnGetAttEdges.targets);
 
 
-
-            nodes.push({
-                data: {
-                    id: keyName,
-                    type: 'resource',
-                    json: JSON.stringify(res),
-                    refs: refEdges.targets.unique1(),
-                    fnsubs: fnSubEdges.targets.unique1()
+            gjsVertices.push(
+                {
+                    data: {
+                        id: keyName,
+                        type: 'resource',
+                        json: JSON.stringify(res),
+                        refs: refEdges.targets.unique1(),
+                        fnsubs: fnSubEdges.targets.unique1(),
+                        getatts: fnGetAttEdges.targets.unique1()
+                    }
                 }
-            });
+            );
         }
 
+
+
         var pseudo_params = get_pseudo_params();
-        for(j = 0; j < pseudo_params.length; j++ ) {
-            if(allTargets.includes(pseudo_params[j])) {
-                nodes.push({
-                    data: { id: pseudo_params[j], type: 'pseudo' }
-                });
+        var used_pseudo_params = [];
+        gjsEdges.filter(function(edge){
+            if(pseudo_params.includes(edge.data.target)) {
+                used_pseudo_params.push(edge.data.target);
+            }
+
+        });
+
+        used_pseudo_params = used_pseudo_params.unique1();
+
+
+        for(j = 0; j < used_pseudo_params.length; j++ ) {
+            var used_pp = used_pseudo_params[j];
+            gjsVertices.push(
+                {
+                    data: { id: used_pp, type: 'pseudo' }
+                }
+            );
+        }
+
+        // find broken edges
+        var vertexKeys = [];
+        for(var y = 0; y < gjsVertices.length; y++) {
+            vertexKeys.push(gjsVertices[y].data.id);
+        }
+
+        var vertexNotExistsErrors = [];
+        for(var z = 0; z < gjsEdges.length; z++) {
+            var targKey = gjsEdges[z].data.target;
+
+            if(!vertexKeys.includes(targKey)) {
+                gjsVertices.push(
+                    {
+                        data: {
+                            id: targKey,
+                            type: 'missing'
+                        }
+                    }
+                );
+                vertexNotExistsErrors.push(
+                    {
+                        source: edge.data.source,
+                        target: targKey
+                    }
+                );
             }
         }
 
 
-        nodes = nodes.filter(not_undefined);
-        edges = edges.filter(not_undefined);
+        // apply filter options
 
-        return {
+        var filteredVertices = [];
+        var blacklistVertexKeys = [];
+        var filteredEdges = [];
+        if(filter_options !== undefined) {
+
+            if(filter_options.include_pseudos === undefined) { filter_options.include_pseudos = true }
+            if(filter_options.include_parameters === undefined) { filter_options.include_parameters = true }
+            if(filter_options.include_resources === undefined) { filter_options.include_resources = true }
+            if(filter_options.include_missings === undefined) { filter_options.include_missings = true }
+
+            var include_pseudos = filter_options.include_pseudos;
+            var include_parameters = filter_options.include_parameters;
+            var include_resources = filter_options.include_resources;
+            var include_missings = filter_options.include_missings;
+
+            for(var i = 0; i < gjsVertices.length; i++) {
+                var vert = gjsVertices[i];
+                if(
+                    (vert.data.type === "parameter" && include_parameters) ||
+                    (vert.data.type === "pseudo" && include_pseudos) ||
+                    (vert.data.type === "resource" && include_resources) ||
+                    (vert.data.type === "missing" && include_missings)
+                ) {
+                    filteredVertices.push(vert);
+                } else {
+                    blacklistVertexKeys.push(vert.data.id);
+                }
+            }
+
+            for(var j = 0; j < gjsEdges.length; j++) {
+                var edge = gjsEdges[j];
+
+                if(!blacklistVertexKeys.includes(edge.data.target)) {
+                    filteredEdges.push(edge);
+                }
+            }
+        } else {
+            filteredVertices = gjsVertices;
+            filteredEdges = gjsEdges;
+        }
+
+
+
+        // add vertices
+        for(var vertI = 0; vertI < filteredVertices.length; vertI++) {
+            var vertex = filteredVertices[vertI];
+            nodes.push(vertex);
+            graphjs.addVertex(vertex.data.id, vertex);
+
+        }
+
+        // add edges
+
+        for(var edgeI = 0; edgeI < filteredEdges.length; edgeI++) {
+            var edge = filteredEdges[edgeI];
+            edges.push(edge);
+                graphjs.addEdge(edge.data.source, edge.data.target, edge);
+        }
+
+        var parseValid = true;
+        if(vertexNotExistsErrors.length !== 0) {
+            parseValid = false;
+        }
+
+
+
+
+
+
+
+        // get cycles
+        var cycles = Array.from(graphjs.cycles());
+        var retVal = {
+            isValid: parseValid,
+
             cytoscape: {
+
                 nodes: nodes,
                 edges: edges
             },
 
-            graphjs: {
+            graphjs: graphjs,
+
+            analysis: {
+                nodeCount: graphjs.vertexCount(),
+                edgeCount: graphjs.edgeCount(),
+                badEdges: vertexNotExistsErrors,
+                cycles: cycles
 
             },
             keys: {
                 refs: allRefs,
-                fnsub: allFnSubs
+                fnsub: allFnSubs,
+                fngetatt: allFnGetAtts
             }
 
 
         };
+
+        console.log(retVal);
+
+        return retVal;
     } catch(err) {
         console.error(err);
         return { nodes: undefined, edges: undefined};
     }
+}
+
+function not_undefined(i) {
+    return !(i===undefined);
 }

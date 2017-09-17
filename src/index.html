@@ -7,7 +7,7 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
         <script src="https://cdn.rawgit.com/cytoscape/cytoscape.js-cose-bilkent/1.6.5/cytoscape-cose-bilkent.js"></script>
         <script src="https://cdn.rawgit.com/dhotson/springy/2.7.1/springy.js"></script>
-        <!--<script src="js/graph.min.js"></script>-->
+        <script src="js/graph.full.js"></script>
         <script src="js/cytoscape-springy.js"></script>
 
         <script src="js/unique1.js"></script>
@@ -18,12 +18,12 @@
 <style>
     #cy {
         width: 100%;
-        height: 90% ;
+        height: 88vh;
         display: block;
     }
     #input_cfn {
-        height:50%;
-        width:100%;
+        height:50vh;
+        width:90%;
     }
 
     #header_row {
@@ -49,10 +49,70 @@
         min-height: 100%;
         border-radius: 0;
     }
+
+    #graphBrokenEdges table {
+        border-collapse: collapse;
+        border: 1px solid black;
+    }
+    #graphBrokenEdges table th {
+        font-weight: bold;
+        text-align: center;
+        border: 1px solid black;
+        padding: 3px;
+    }
+
+    #graphBrokenEdges table td {
+        padding: 3px;
+        border: 1px solid black;
+        text-align: center;
+    }
+
+    #legend_table th {
+        padding: 5px;
+    }
+
+    #legend_table td {
+        padding: 10px;
+    }
+
+    .no-padding {
+        padding: 0 !important;
+        margin: 0;
+    }
+
+    .no-padding > div {
+        background-repeat: no-repeat;
+        background-size: cover;
+
+    }
+
+    div.header_row {
+        height: 5vh;
+    }
+
+    div.footer_row {
+        height: 5vh;
+    }
+
+    div.body {
+        height: 88vh;
+    }
+
 </style>
         <script>
             window.onload=function() {
-              handle_json_change();
+                var colors = color_scheme();
+                $("#node_default").css('background-color', colors.node.default );
+                $("#node_resource").css('background-color', colors.node.resource );
+                $("#node_parameter").css('background-color', colors.node.parameter );
+                $("#node_pseudo").css('background-color', colors.node.pseudo );
+                $("#node_missing").css('background-color', colors.node.missing );
+
+                $("#edge_default").css('background-color', colors.edge.default );
+                $("#edge_ref").css('background-color', colors.edge.ref );
+                $("#edge_fnsub").css('background-color', colors.edge.fnsub );
+                $("#edge_fngetatt").css('background-color', colors.edge.fngetatt );
+                handle_json_change();
             };
 
             function node_click(evt) {
@@ -75,63 +135,41 @@
                 return JSON.stringify(JSON.parse(json), null, 2)
             }
 
-            function get_edges(source, targets, type) {
-
-                // List Targets
-                var targetStrings = [];
-                for(var i = 0; i < targets.length; i++) {
-                    targetStrings.push(targets[i]);
-                }
-
-
-                // Dedup Targets
-                targetStrings = targetStrings.unique1();
-
-                // Create edges
-                var edges = [];
-                for(var k = 0; k < targetStrings.length; k++) {
-                    var edge = { // edge ab
-                        data: {
-                            id: source + ">" + targetStrings[k],
-                            source: source,
-                            target: targetStrings[k],
-                            type: type
-                        }
-                    };
-                    edges.push(edge);
-                }
-
-                return {
-                    edges: edges,
-                    targets: targets
-                }
-            }
-
-
-
             function handle_json_change(sender) {
                 var json = $("#input_cfn").val();
-                var graph_data = parse_cfn_json(json);
-                console.log(graph_data);
-                set_analysis(graph_data.graphjs);
-                set_cytoscape(graph_data.cytoscape.nodes, graph_data.cytoscape.edges, node_click);
+                if(json === undefined || json === "") {
+                    json = "{}";
+                }
+                var filterOptions = {
+                    include_parameters: $("#include_parameters").is(':checked'),
+                    include_missings: $("#include_missings").is(':checked'),
+                    include_pseudos: $("#include_pseudos").is(':checked'),
+                    include_resources: $("#include_resources").is(':checked')
+                };
+                var parseData = parse_cfn_json(json, filterOptions);
+                set_analysis(parseData.analysis);
+                set_cytoscape(parseData.cytoscape.nodes, parseData.cytoscape.edges, node_click);
+//                if(parseData.isValid) {
+//
+//                } else {
+//                    clear_cytoscape();
+//                }
                 return false;
             }
 
-            function not_undefined(i) {
-                return !(i===undefined);
-            }
+
         </script>
     </head>
     <body>
+    <section id="gallery">
         <div class="container-fluid">
             <div class="row">
-                <div class="col-md-12" id="header_row">
-                    <span id="header_text">Cfn Graph</span>
+                <div class="no-padding col-md-12 header_row" id="header_row">
+                    <span id="header_text">Cfn Graph</span>&nbsp;<span id="byline">by Matthew Shea</span>
                 </div>
             </div>
             <div class="row">
-                <div class="col-md-4">
+                <div class="no-padding col-md-4 body">
                     <div class="container-fluid">
                         <div class="row">
                             <span class="modal-header">Template (JSON)</span>
@@ -220,41 +258,99 @@
                                 <div id="analysis">
                                     <div class="container-fluid">
                                         <div class="row">
-                                            <div class="col-md-2 bold">Nodes:</div>
-                                            <div class="col-md-10"><span id="graphNodeCount"></span></div>
+                                            <div class="col-md-3 analysis-header">Nodes:</div>
+                                            <div class="col-md-9"><span id="graphNodeCount"></span></div>
                                         </div>
                                         <div class="row">
-                                            <div class="col-md-2">Edges:</div>
-                                            <div class="col-md-10"><span id="graphEdgeCount"></span></div>
+                                            <div class="col-md-3 analysis-header">Edges:</div>
+                                            <div class="col-md-9"><span id="graphEdgeCount"></span></div>
                                         </div>
                                         <div class="row">
-                                            <div class="col-md-2">Cycles:</div>
-                                            <div class="col-md-10"><span id="graphCycles"></span></div>
+                                            <div class="col-md-3 analysis-header">Cycles:</div>
+                                            <div class="col-md-9" id="graphCycles"></div>
                                         </div>
                                         <div class="row">
-                                            <div class="col-md-2">Broken Edges:</div>
-                                            <div class="col-md-10"><span id="graphBrokenEdges"></span></div>
+                                            <div class="col-md-3 analysis-header">Broken Edges:</div>
+                                            <div class="col-md-9" id="graphBrokenEdges"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-                <div class="col-md-8">
+                <div class="no-padding col-md-8 body">
                     <span class="modal-header">Graph</span>
                     <div id="cy"></div>
                 </div>
             </div>
+
             <div class="row">
-                <div class="col-md-12">
-                   Samples:
+                <div class="no-padding col-md-4 footer_row">
+                    Samples:
                     <a href="https://raw.githubusercontent.com/tableau/server-install-script-samples/master/CloudFormation/public-sample-ssl-cluster.cfn" target="_blank">Tableau Cluster</a>
                 </div>
+                <div class="no-padding col-md-5 footer_row">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-md-6">
+                                Nodes:<br/>
+                                <label class="custom-control custom-checkbox">
+                                    <input checked="checked" type="checkbox" class="custom-control-input" id="include_parameters" onchange="handle_json_change();" >
+                                    <span class="custom-control-indicator"></span>
+                                    <span class="custom-control-description">Parameters</span>
+                                </label>
+
+                                <label class="custom-control custom-checkbox">
+                                    <input checked="checked" type="checkbox" class="custom-control-input" id="include_pseudos" onchange="handle_json_change();" >
+                                    <span class="custom-control-indicator"></span>
+                                    <span class="custom-control-description">Pseudo</span>
+                                </label>
+
+                                <label class="custom-control custom-checkbox">
+                                    <input checked="checked" type="checkbox" class="custom-control-input" id="include_resources" onchange="handle_json_change();" >
+                                    <span class="custom-control-indicator"></span>
+                                    <span class="custom-control-description">Resources</span>
+                                </label>
+
+                                <label class="custom-control custom-checkbox">
+                                    <input checked="checked" type="checkbox" class="custom-control-input" id="include_missings" onchange="handle_json_change();" >
+                                    <span class="custom-control-indicator"></span>
+                                    <span class="custom-control-description">Missing</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-padding col-md-3 footer_row">
+                    <table id="legend_table" style="float:right;">
+                        <tr>
+                            <th colspan="5">Nodes</th>
+                            <th colspan="4">Edges</th>
+                        </tr>
+                        <tr>
+                            <td id="node_default">Default</td>
+                            <td id="node_resource">Resource</td>
+                            <td id="node_parameter">Parameter</td>
+                            <td id="node_pseudo">Pseudo</td>
+                            <td id="node_missing">Missing</td>
+
+                            <td id="edge_default">Default</td>
+                            <td id="edge_ref">Ref</td>
+                            <td id="edge_fnsub">Fn::Sub</td>
+                            <td id="edge_fngetatt">Fn::GetAtt</td>
+                        </tr>
+                    </table>
+                </div>
             </div>
+
+
+
         </div>
+    </section>
+
+
 
         <div id="nodeModal" class="modal fade" role="dialog">
             <div class="modal-dialog">

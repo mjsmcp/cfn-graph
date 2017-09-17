@@ -1,6 +1,26 @@
 /**
  * Created by mjsmcp on 9/16/17.
  */
+
+function color_scheme() {
+    return {
+        node: {
+            default: "#666",
+            pseudo: "#8b4aba",
+            parameter: "#7ec9b3",
+            resource: "#f4d942",
+            missing: "#f00"
+        },
+
+        edge: {
+            default: "#666",
+            ref: "#ffaaaa",
+            fnsub: "#aaffaa",
+            fngetatt: "#aaaaff"
+        }
+
+    };
+}
 function set_cytoscape(nodes, edges, node_click) {
     console.log("Nodes:");
     console.log(nodes);
@@ -8,7 +28,7 @@ function set_cytoscape(nodes, edges, node_click) {
     console.log("Edges:");
     console.log(edges);
 
-
+    var colors = color_scheme();
     var cy = cytoscape({
 
         container: document.getElementById('cy'), // container to render in
@@ -20,7 +40,7 @@ function set_cytoscape(nodes, edges, node_click) {
             .css({
                 'label': 'data(id)',
                 'background-fit': 'cover',
-                'background-color': '#666',
+                'background-color': colors.node.default,
                 'border-width': 0
 
             })
@@ -28,7 +48,7 @@ function set_cytoscape(nodes, edges, node_click) {
             .css({
                 'label': 'data(id)',
                 'background-fit': 'cover',
-                'background-color': '#66f',
+                'background-color': colors.node.pseudo,
                 'border-width': 0
 
             })
@@ -36,7 +56,7 @@ function set_cytoscape(nodes, edges, node_click) {
             .css({
                 'label': 'data(id)',
                 'background-fit': 'cover',
-                'background-color': '#6f6',
+                'background-color': colors.node.parameter,
                 'border-width': 0
 
             })
@@ -44,7 +64,15 @@ function set_cytoscape(nodes, edges, node_click) {
             .css({
                 'label': 'data(id)',
                 'background-fit': 'cover',
-                'background-color': '#f66',
+                'background-color': colors.node.resource,
+                'border-width': 0
+
+            })
+            .selector("[type = 'missing']")
+            .css({
+                'label': 'data(id)',
+                'background-fit': 'cover',
+                'background-color': colors.node.missing,
                 'border-width': 0
 
             })
@@ -53,24 +81,32 @@ function set_cytoscape(nodes, edges, node_click) {
                 'curve-style': 'bezier',
                 'width': 3,
                 'target-arrow-shape': 'triangle',
-                'line-color': '#ffaaaa',
-                'target-arrow-color': '#ffaaaa'
+                'line-color': colors.edge.default,
+                'target-arrow-color': colors.edge.default
+            })
+            .selector("[ type = 'ref' ]")
+            .css({
+                'curve-style': 'bezier',
+                'width': 3,
+                'target-arrow-shape': 'triangle',
+                'line-color': colors.edge.ref,
+                'target-arrow-color': colors.edge.ref
             })
             .selector("[ type = 'fnsub' ]")
             .css({
                 'curve-style': 'bezier',
                 'width': 3,
                 'target-arrow-shape': 'triangle',
-                'line-color': '#aaffaa',
-                'target-arrow-color': '#aaffaa'
+                'line-color': colors.edge.fnsub,
+                'target-arrow-color': colors.edge.fnsub
             })
             .selector("[ type = 'fngetatt' ]")
             .css({
                 'curve-style': 'bezier',
                 'width': 3,
                 'target-arrow-shape': 'triangle',
-                'line-color': '#aaaaff',
-                'target-arrow-color': '#aaaaff'
+                'line-color': colors.edge.fngetatt,
+                'target-arrow-color': colors.edge.fngetatt
             }),
 
         layout: {
