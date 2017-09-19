@@ -13,7 +13,7 @@
 			"Properties": {
 				"DistributionConfig": {
 					"Aliases": [
-						"cfn-build.mjsmcp.com"
+						"cfn-graph.mjsmcp.com"
 					],
 					"DefaultCacheBehavior": {
 						"AllowedMethods": [
@@ -74,10 +74,10 @@
 		"CfnGraphCertificate": {
 			"Type": "AWS::CertificateManager::Certificate",
 			"Properties": {
-				"DomainName": "cfn-build.mjsmcp.com",
+				"DomainName": "cfn-graph.mjsmcp.com",
 				"DomainValidationOptions": [
                     {
-                        "DomainName": "cfn-build.mjsmcp.com",
+                        "DomainName": "cfn-graph.mjsmcp.com",
                         "ValidationDomain": "mjsmcp.com"
                     }
 				]
