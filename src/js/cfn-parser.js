@@ -11,23 +11,29 @@ function get_ref(key,value) {
     return refs;
 }
 
-// incomplete
+
+function get_regex_matches(regexp, str) {
+    var match, matches = [];
+
+    while ((match = regexp.exec(str)) !== null) {
+        matches.push(match);
+    }
+
+    return matches;
+}
+
+
 function get_sub_formatted_keys(value) {
     var keys = [];
-    var rx3 = /\${([^}]+)}/;
-    var matches = value.match(rx3);
-    if (!(matches === null)) {
+    var rx3 = /\${([^}]+)}/g;
 
-        var validMatches = [];
-        for (var i = 0; i < matches.length; i++) {
-            if (!rx3.test(matches[i])) {
-                validMatches.push(matches[i]);
+    var matches = get_regex_matches(rx3,value);
+    for(var i = 0; i < matches.length; i++) {
+        var matchList = matches[i];
+        for(var j = 0; j < matchList.length; j++) {
+            if(!rx3.test(matchList[j])) {
+                keys.push(matchList[j]);
             }
-        }
-
-        validMatches = validMatches.unique1();
-        for (var k = 0; k < validMatches.length; k++) {
-            keys.push(validMatches[k]);
         }
     }
 
@@ -38,7 +44,6 @@ function get_fnsub(key,value) {
     if(key === "Fn::Sub") {
         if(typeof(value) === "string") {
             subs = subs.concat(get_sub_formatted_keys(value));
-
         } else if(typeof(value) === "object") {
             var string = value[0];
             var obSubs = get_sub_formatted_keys(string);
@@ -57,7 +62,7 @@ function get_fnsub(key,value) {
             subs = subs.concat(obSubs);
 
         } else {
-            console.log(typeof(value));
+            console.error(typeof(value));
         }
 
 
@@ -80,10 +85,21 @@ function get_fngetatt(key, value) {
     return getatts;
 }
 
-function print(key,value) {
-    console.log(key + " : " + value);
-}
+function get_conditions(key, value) {
+    var conditions =  [];
+    if(key === "Fn::If") {
+        if(typeof(value) === "object") {
+            var conditionName = value[0];
+            conditions.push(conditionName);
+        }
+    } else if(key === "Condition") {
+        if(typeof(value) === "string") {
+            conditions.push(value);
+        }
+    }
 
+    return conditions;
+}
 
 
 
@@ -151,6 +167,43 @@ function get_edges(source, targets, type) {
     };
 }
 
+function process_node(id, type, node) {
+
+    // Get Refs
+    var resRef = traverse(node, get_ref);
+    var refEdges = get_edges(id, resRef, 'ref');
+
+    // Get FnSubs
+    var resFnSub = traverse(node, get_fnsub);
+    var fnSubEdges = get_edges(id, resFnSub, 'fnsub');
+
+    // Get GetAtts
+    var resFnGetAtt = traverse(node, get_fngetatt);
+    var fnGetAttEdges = get_edges(id, resFnGetAtt, 'fngetatt');
+
+    // Get Conditions
+    var resConditions = traverse(node, get_conditions);
+    var conditionEdges = get_edges(id, resConditions, 'conditional');
+
+    var edges = [];
+    edges = edges.concat(refEdges.edges);
+    edges = edges.concat(fnSubEdges.edges);
+    edges = edges.concat(fnGetAttEdges.edges);
+    edges = edges.concat(conditionEdges.edges);
+    return {
+        data: {
+            id: id,
+            type: type,
+            json: JSON.stringify(node),
+            refs: refEdges.targets.unique1(),
+            fnsubs: fnSubEdges.targets.unique1(),
+            getatts: fnGetAttEdges.targets.unique1(),
+            conditions: conditionEdges.targets.unique1(),
+            edges: edges
+        }
+    };
+
+}
 
 function parse_cfn_json(json, filter_options) {
     try {
@@ -158,6 +211,8 @@ function parse_cfn_json(json, filter_options) {
         // Get relevant top-level items
         var parameters = jsonObject.Parameters;
         var resources = jsonObject.Resources;
+        var conditions = jsonObject.Conditions;
+        var outputs = jsonObject.Outputs;
 
         // make GraphJs
         var graphjs = new Graph();
@@ -167,71 +222,53 @@ function parse_cfn_json(json, filter_options) {
         // Set lists
         var nodes = [];
         var edges = [];
-        var allRefs = [];
-        var allFnSubs = [];
-        var allTargets = [];
-        var allFnGetAtts = [];
 
         // Process parameters
-        for(param in parameters) {
-            gjsVertices.push({
-                data: {
-                    id: param,
-                    type: 'parameter',
-                    json: JSON.stringify(parameters[param])
-                }
+        if(parameters !== undefined)
+            for(param in parameters) {
+                gjsVertices.push({
+                    data: {
+                        id: param,
+                        type: 'parameter',
+                        json: JSON.stringify(parameters[param])
+                    }
 
-            });
-        }
+                });
+            }
 
         // Process resources
-        for(var keyName in resources) {
-            var res = resources[keyName];
-
-            // Get Refs
-            var resRef = traverse(res, get_ref);
-            var refEdges = get_edges(keyName, resRef, 'ref');
-            for(var i = 0; i < refEdges.edges.length; i++) {
-                var edge = refEdges.edges[i];
-                gjsEdges.push(edge);
+        if(resources !== undefined)
+            for(var keyName in resources) {
+                var resource = process_node(keyName, 'resource', resources[keyName]);
+                gjsVertices.push(resource);
             }
-            allRefs = allRefs.concat(refEdges.targets);
 
-            // Get FnSubs
-            var resFnSub = traverse(res, get_fnsub);
-            var fnSubEdges = get_edges(keyName, resFnSub, 'fnsub');
-            for(var i = 0; i < fnSubEdges.edges.length; i++) {
-                var edge = fnSubEdges.edges[i];
-                gjsEdges.push(edge);
+        // Process conditions
+        if(conditions !== undefined)
+            for(var keyName in conditions) {
+                var condition = process_node(keyName, 'condition', conditions[keyName]);
+                gjsVertices.push(condition);
             }
-            allFnSubs = allFnSubs.concat(fnSubEdges.targets);
 
-            // Get GetAtts
-            var resFnGetAtt = traverse(res, get_fngetatt);
-            var fnGetAttEdges = get_edges(keyName, resFnGetAtt, 'fngetatt');
-            for(var i = 0; i < fnGetAttEdges.edges.length; i++) {
-                var edge = fnGetAttEdges.edges[i];
-                gjsEdges.push(edge);
+        // Process Outputs
+        if(outputs !== undefined)
+            for(var keyName in outputs) {
+                var output = process_node(keyName, 'output', outputs[keyName]);
+                gjsVertices.push(output);
             }
-            allFnGetAtts = allFnGetAtts.concat(fnGetAttEdges.targets);
+        // extract edges
+        for(var a = 0; a < gjsVertices.length; a++) {
+            var vert = gjsVertices[a];
 
-
-            gjsVertices.push(
-                {
-                    data: {
-                        id: keyName,
-                        type: 'resource',
-                        json: JSON.stringify(res),
-                        refs: refEdges.targets.unique1(),
-                        fnsubs: fnSubEdges.targets.unique1(),
-                        getatts: fnGetAttEdges.targets.unique1()
-                    }
-                }
-            );
+            if(vert.data.edges !== undefined) {
+                gjsEdges = gjsEdges.concat(vert.data.edges);
+            }
         }
 
 
 
+
+        // check all the existing edges to see if we used any pseudo params
         var pseudo_params = get_pseudo_params();
         var used_pseudo_params = [];
         gjsEdges.filter(function(edge){
@@ -240,10 +277,9 @@ function parse_cfn_json(json, filter_options) {
             }
 
         });
-
         used_pseudo_params = used_pseudo_params.unique1();
 
-
+        // add the pseudo params as vertices
         for(j = 0; j < used_pseudo_params.length; j++ ) {
             var used_pp = used_pseudo_params[j];
             gjsVertices.push(
@@ -253,6 +289,10 @@ function parse_cfn_json(json, filter_options) {
             );
         }
 
+
+
+
+
         // find broken edges
         var vertexKeys = [];
         for(var y = 0; y < gjsVertices.length; y++) {
@@ -261,7 +301,8 @@ function parse_cfn_json(json, filter_options) {
 
         var vertexNotExistsErrors = [];
         for(var z = 0; z < gjsEdges.length; z++) {
-            var targKey = gjsEdges[z].data.target;
+            var edge = gjsEdges[z];
+            var targKey = edge.data.target;
 
             if(!vertexKeys.includes(targKey)) {
                 gjsVertices.push(
@@ -293,19 +334,24 @@ function parse_cfn_json(json, filter_options) {
             if(filter_options.include_parameters === undefined) { filter_options.include_parameters = true }
             if(filter_options.include_resources === undefined) { filter_options.include_resources = true }
             if(filter_options.include_missings === undefined) { filter_options.include_missings = true }
+            if(filter_options.include_conditions === undefined) { filter_options.include_conditions = true }
+            if(filter_options.include_outputs === undefined) { filter_options.include_outputs = true }
 
             var include_pseudos = filter_options.include_pseudos;
             var include_parameters = filter_options.include_parameters;
             var include_resources = filter_options.include_resources;
             var include_missings = filter_options.include_missings;
-
+            var include_conditions = filter_options.include_conditions;
+            var include_outputs = filter_options.include_outputs;
             for(var i = 0; i < gjsVertices.length; i++) {
                 var vert = gjsVertices[i];
                 if(
                     (vert.data.type === "parameter" && include_parameters) ||
                     (vert.data.type === "pseudo" && include_pseudos) ||
                     (vert.data.type === "resource" && include_resources) ||
-                    (vert.data.type === "missing" && include_missings)
+                    (vert.data.type === "missing" && include_missings) ||
+                    (vert.data.type === "condition" && include_conditions) ||
+                    (vert.data.type === "output" && include_outputs)
                 ) {
                     filteredVertices.push(vert);
                 } else {
@@ -316,7 +362,7 @@ function parse_cfn_json(json, filter_options) {
             for(var j = 0; j < gjsEdges.length; j++) {
                 var edge = gjsEdges[j];
 
-                if(!blacklistVertexKeys.includes(edge.data.target)) {
+                if(!blacklistVertexKeys.includes(edge.data.target) && !blacklistVertexKeys.includes(edge.data.source)) {
                     filteredEdges.push(edge);
                 }
             }
@@ -340,7 +386,8 @@ function parse_cfn_json(json, filter_options) {
         for(var edgeI = 0; edgeI < filteredEdges.length; edgeI++) {
             var edge = filteredEdges[edgeI];
             edges.push(edge);
-                graphjs.addEdge(edge.data.source, edge.data.target, edge);
+            console.log("edge: " + edge.data.source + "=>" + edge.data.target);
+            graphjs.addEdge(edge.data.source, edge.data.target, edge);
         }
 
         var parseValid = true;
@@ -373,17 +420,11 @@ function parse_cfn_json(json, filter_options) {
                 badEdges: vertexNotExistsErrors,
                 cycles: cycles
 
-            },
-            keys: {
-                refs: allRefs,
-                fnsub: allFnSubs,
-                fngetatt: allFnGetAtts
             }
 
 
         };
 
-        console.log(retVal);
 
         return retVal;
     } catch(err) {

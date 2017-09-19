@@ -9,24 +9,27 @@ function color_scheme() {
             pseudo: "#8b4aba",
             parameter: "#7ec9b3",
             resource: "#f4d942",
-            missing: "#f00"
+            condition: "#0fb500",
+            missing: "#f00",
+            output: "#ffb600"
         },
 
         edge: {
             default: "#666",
             ref: "#ffaaaa",
             fnsub: "#aaffaa",
-            fngetatt: "#aaaaff"
+            fngetatt: "#aaaaff",
+            condition: "#faaffa"
         }
 
     };
 }
 function set_cytoscape(nodes, edges, node_click) {
-    console.log("Nodes:");
-    console.log(nodes);
-
-    console.log("Edges:");
-    console.log(edges);
+    // console.log("Nodes:");
+    // console.log(nodes);
+    //
+    // console.log("Edges:");
+    // console.log(edges);
 
     var colors = color_scheme();
     var cy = cytoscape({
@@ -68,14 +71,36 @@ function set_cytoscape(nodes, edges, node_click) {
                 'border-width': 0
 
             })
+            .selector("[type = 'condition']")
+            .css({
+                'label': 'data(id)',
+                'background-fit': 'cover',
+                'background-color': colors.node.condition,
+                'border-width': 0,
+                'width': 30,
+                'height': 30
+
+            })
+            .selector("[type = 'output']")
+            .css({
+                'label': 'data(id)',
+                'background-fit': 'cover',
+                'background-color': colors.node.output,
+                'border-width': 0
+
+            })
             .selector("[type = 'missing']")
             .css({
                 'label': 'data(id)',
                 'background-fit': 'cover',
                 'background-color': colors.node.missing,
-                'border-width': 0
+                'border-width': 0,
+                'width': 60,
+                'height': 60
 
             })
+
+
             .selector('edge')
             .css({
                 'curve-style': 'bezier',
@@ -107,6 +132,14 @@ function set_cytoscape(nodes, edges, node_click) {
                 'target-arrow-shape': 'triangle',
                 'line-color': colors.edge.fngetatt,
                 'target-arrow-color': colors.edge.fngetatt
+            })
+            .selector("[ type = 'conditional' ]")
+            .css({
+                'curve-style': 'bezier',
+                'width': 3,
+                'target-arrow-shape': 'triangle',
+                'line-color': colors.edge.condition,
+                'target-arrow-color': colors.edge.condition
             }),
 
         layout: {
@@ -127,8 +160,8 @@ function set_cytoscape(nodes, edges, node_click) {
 
             // springy forces and config
             stiffness: 100,
-            repulsion: 600,
-            damping: 0.4,
+            repulsion: 800,
+            damping: 0.6,
             edgeLength: function( edge ){
                 var length = edge.data('length');
 
